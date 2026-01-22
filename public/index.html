@@ -1,0 +1,291 @@
+public/index.html<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🂯 TussiesJack - AI Blackjack Mester</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 { text-align: center; color: #333; margin-bottom: 30px; font-size: 2.5em; }
+    .game-area {
+      background: #1a5f3f;
+      color: white;
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .hand {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .card {
+      background: white;
+      color: #1a5f3f;
+      border-radius: 10px;
+      padding: 20px 15px;
+      min-width: 60px;
+      font-weight: bold;
+      font-size: 1.2em;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .score {
+      font-size: 1.5em;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 30px;
+    }
+    button {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    .btn-primary:hover { background: #5568d3; transform: translateY(-2px); }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .btn-danger { background: #f56565; color: white; }
+    .btn-danger:hover { background: #e53e3e; }
+    .stats {
+      background: #f7f7f7;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .stat-item:last-child { border-bottom: none; }
+    .result {
+      padding: 20px;
+      border-radius: 10px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.2em;
+    }
+    .result.win { background: #c6f6d5; color: #22543d; }
+    .result.loss { background: #fed7d7; color: #742a2a; }
+    .result.push { background: #bee3f8; color: #2c5282; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🂯 TussiesJack</h1>
+    
+    <div class="game-area">
+      <div>
+        <div style="margin-bottom: 20px;">
+          <strong>Forhandlers kort:</strong>
+          <div class="hand" id="dealerCards"></div>
+          <div class="score" id="dealerScore">Poengsum: 0</div>
+        </div>
+        <hr style="margin: 20px 0; border: 1px solid rgba(255,255,255,0.3);">
+        <div>
+          <strong>Dine kort:</strong>
+          <div class="hand" id="playerCards"></div>
+          <div class="score" id="playerScore">Poengsum: 0</div>
+        </div>
+      </div>
+      
+      <div id="result"></div>
+      
+      <div class="buttons">
+        <button class="btn-primary" onclick="gameController.hit()" id="hitBtn">Hit (Ta kort)</button>
+        <button class="btn-primary" onclick="gameController.stand()" id="standBtn">Stand (Stå)</button>
+        <button class="btn-primary" onclick="gameController.newGame()" id="newGameBtn">Nytt spill</button>
+      </div>
+    </div>
+    
+    <div class="stats">
+      <div class="stat-item">
+        <span>Total hender:</span>
+        <strong id="totalHands">0</strong>
+      </div>
+      <div class="stat-item">
+        <span>Seire:</span>
+        <strong id="wins" style="color: green;">0</strong>
+      </div>
+      <div class="stat-item">
+        <span>Tap:</span>
+        <strong id="losses" style="color: red;">0</strong>
+      </div>
+      <div class="stat-item">
+        <span>Vinnerrate:</span>
+        <strong id="winRate">0%</strong>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class BlackjackGame {
+      constructor() {
+        this.deck = [];
+        this.playerCards = [];
+        this.dealerCards = [];
+        this.gameActive = false;
+        this.stats = { totalHands: 0, wins: 0, losses: 0 };
+        this.resetDeck();
+        this.newGame();
+      }
+
+      resetDeck() {
+        this.deck = [];
+        const suits = ['♣', '♦', '♥', '♠'];
+        const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        for (let s of suits) {
+          for (let r of ranks) {
+            this.deck.push(r + s);
+          }
+        }
+        this.shuffle(this.deck);
+      }
+
+      shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      drawCard() {
+        if (this.deck.length < 10) this.resetDeck();
+        return this.deck.pop();
+      }
+
+      cardValue(card) {
+        const rank = card.slice(0, -1);
+        if (rank === 'A') return 11;
+        if (['J', 'Q', 'K'].includes(rank)) return 10;
+        return parseInt(rank);
+      }
+
+      handValue(cards) {
+        let value = cards.reduce((sum, card) => sum + this.cardValue(card), 0);
+        let aces = cards.filter(c => c[0] === 'A').length;
+        while (value > 21 && aces > 0) {
+          value -= 10;
+          aces--;
+        }
+        return value;
+      }
+
+      newGame() {
+        this.playerCards = [this.drawCard(), this.drawCard()];
+        this.dealerCards = [this.drawCard(), this.drawCard()];
+        this.gameActive = true;
+        this.render();
+      }
+
+      hit() {
+        if (!this.gameActive) return;
+        this.playerCards.push(this.drawCard());
+        if (this.handValue(this.playerCards) > 21) this.endGame();
+        this.render();
+      }
+
+      stand() {
+        if (!this.gameActive) return;
+        while (this.handValue(this.dealerCards) < 17) {
+          this.dealerCards.push(this.drawCard());
+        }
+        this.endGame();
+      }
+
+      endGame() {
+        this.gameActive = false;
+        this.stats.totalHands++;
+        const playerValue = this.handValue(this.playerCards);
+        const dealerValue = this.handValue(this.dealerCards);
+
+        let result = '';
+        if (playerValue > 21) {
+          result = 'BUST - Du tapte!';
+          this.stats.losses++;
+        } else if (dealerValue > 21) {
+          result = 'Du vant! Forhandler bustet!';
+          this.stats.wins++;
+        } else if (playerValue > dealerValue) {
+          result = 'Du vant!';
+          this.stats.wins++;
+        } else if (playerValue < dealerValue) {
+          result = 'Du tapte!';
+          this.stats.losses++;
+        } else {
+          result = 'Push - Uavgjort!';
+        }
+        
+        this.updateStats();
+        this.renderResult(result);
+      }
+
+      updateStats() {
+        document.getElementById('totalHands').textContent = this.stats.totalHands;
+        document.getElementById('wins').textContent = this.stats.wins;
+Add public/index.html - working blackjack gameCreate working blackjack game with web UI          ? Math.round((this.stats.wins / this.stats.totalHands) * 100) 
+          : 0;
+        document.getElementById('winRate').textContent = rate + '%';
+      }
+
+      renderResult(text) {
+        const resultDiv = document.getElementById('result');
+        const className = text.includes('vant') ? 'win' : text.includes('tap') ? 'loss' : 'push';
+        resultDiv.innerHTML = `<div class="result ${className}">${text}</div>`;
+      }
+
+      render() {
+        document.getElementById('playerCards').innerHTML = this.playerCards
+          .map(c => `<div class="card">${c}</div>`).join('');
+        document.getElementById('playerScore').textContent = `Poengsum: ${this.handValue(this.playerCards)}`;
+        
+        document.getElementById('dealerCards').innerHTML = this.dealerCards
+          .map((c, i) => `<div class="card">${this.gameActive && i === 1 ? '?' : c}</div>`).join('');
+        document.getElementById('dealerScore').textContent = this.gameActive 
+          ? `Poengsum: ${this.cardValue(this.dealerCards[0])}+?` 
+          : `Poengsum: ${this.handValue(this.dealerCards)}`;
+        
+        document.getElementById('hitBtn').disabled = !this.gameActive;
+        document.getElementById('standBtn').disabled = !this.gameActive;
+      }
+    }
+
+    const gameController = new BlackjackGame();
+  </script>
+</body>
+</html>
