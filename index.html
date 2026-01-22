@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TussiesJack - AI Blackjack</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 40px; max-width: 600px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        h1 { text-align: center; color: #333; margin-bottom: 10px; font-size: 2.5em; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 0.9em; }
+        .game-area { background: linear-gradient(135deg, #2d5016 0%, #1a3d0c 100%); border-radius: 15px; padding: 30px; color: white; min-height: 400px; }
+        .dealer-hand, .player-hand { margin-bottom: 20px; }
+        .hand-label { font-weight: bold; margin-bottom: 8px; font-size: 1.1em; }
+        .cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+        .card { background: white; color: #333; width: 70px; height: 100px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2em; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .score { font-size: 1.1em; margin-top: 5px; }
+        .controls { margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        button { padding: 12px 24px; font-size: 1em; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+        .btn-primary { background: #ff6b6b; color: white; }
+        .btn-primary:hover { background: #ff5252; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(255,107,107,0.4); }
+        .btn-secondary { background: #4ecdc4; color: white; }
+        .btn-secondary:hover { background: #45b8ae; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(78,205,196,0.4); }
+        .btn-success { background: #51cf66; color: white; }
+        .btn-success:hover { background: #40c057; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(81,207,102,0.4); }
+        .message { background: rgba(255,255,255,0.2); border-left: 4px solid #ff6b6b; padding: 15px; border-radius: 8px; margin-top: 20px; min-height: 40px; display: flex; align-items: center; }
+        .message.win { border-left-color: #51cf66; }
+        .message.lose { border-left-color: #ff6b6b; }
+        .message.tie { border-left-color: #ffd43b; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .stat-box { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-label { font-size: 0.9em; opacity: 0.9; }
+        .stat-value { font-size: 1.5em; font-weight: bold; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>♠ TussiesJack ♠</h1>
+        <p class="subtitle">AI-Powered Blackjack Agent</p>
+        
+        <div class="game-area">
+            <div class="dealer-hand">
+                <div class="hand-label">Dealer's Hand</div>
+                <div class="cards" id="dealerCards"></div>
+                <div class="score" id="dealerScore">Score: 0</div>
+            </div>
+            
+            <div style="border-top: 2px solid rgba(255,255,255,0.3); margin: 20px 0;"></div>
+            
+            <div class="player-hand">
+                <div class="hand-label">Your Hand</div>
+                <div class="cards" id="playerCards"></div>
+                <div class="score" id="playerScore">Score: 0</div>
+            </div>
+            
+            <div class="message" id="message">Welcome to TussiesJack! Click "Deal" to start playing.</div>
+            
+            <div class="controls">
+                <button class="btn-success" onclick="deal()">Deal</button>
+                <button class="btn-primary" onclick="hit()">Hit</button>
+                <button class="btn-secondary" onclick="stand()">Stand</button>
+                <button class="btn-secondary" onclick="resetGame()">Reset</button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Wins</div>
+                    <div class="stat-value" id="wins">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Losses</div>
+                    <div class="stat-value" id="losses">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const suits = ['♠', '♥', '♦', '♣'];
+        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        let deck = [];
+        let dealerHand = [];
+        let playerHand = [];
+        let gameOver = false;
+        let wins = 0, losses = 0;
+        
+        function createDeck() {
+            deck = [];
+            for (let suit of suits) {
+                for (let value of values) {
+                    deck.push({suit, value});
+                }
+            }
+            shuffle(deck);
+        }
+        
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        function cardValue(card) {
+            if (card.value === 'A') return 11;
+            if (['J', 'Q', 'K'].includes(card.value)) return 10;
+            return parseInt(card.value);
+        }
+        
+        function getScore(hand) {
+            let score = 0, aces = 0;
+            for (let card of hand) {
+                score += cardValue(card);
+                if (card.value === 'A') aces++;
+            }
+            while (score > 21 && aces > 0) {
+                score -= 10;
+                aces--;
+            }
+            return score;
+        }
+        
+        function displayCards(hand, elementId) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('');
+        }
+        
+        function updateScores() {
+            document.getElementById('dealerScore').textContent = `Score: ${getScore(dealerHand)}`;
+            document.getElementById('playerScore').textContent = `Score: ${getScore(playerHand)}`;
+        }
+        
+        function deal() {
+            if (deck.length < 10) createDeck();
+            dealerHand = [deck.pop(), deck.pop()];
+            playerHand = [deck.pop(), deck.pop()];
+            gameOver = false;
+            displayCards(dealerHand, 'dealerCards');
+            displayCards(playerHand, 'playerCards');
+            updateScores();
+            document.getElementById('message').textContent = 'Your turn. Hit or Stand?';
+            document.getElementById('message').className = '';
+        }
+        
+        function hit() {
+            if (gameOver) return;
+            playerHand.push(deck.pop());
+            displayCards(playerHand, 'playerCards');
+            updateScores();
+            if (getScore(playerHand) > 21) {
+                endGame('bust');
+            }
+        }
+        
+        function stand() {
+            if (gameOver) return;
+            while (getScore(dealerHand) < 17) {
+                dealerHand.push(deck.pop());
+            }
+            displayCards(dealerHand, 'dealerCards');
+            updateScores();
+            determineWinner();
+        }
+        
+        function determineWinner() {
+            let playerScore = getScore(playerHand);
+            let dealerScore = getScore(dealerHand);
+            
+            if (dealerScore > 21) {
+                endGame('dealer_bust');
+            } else if (playerScore > dealerScore) {
+                endGame('win');
+            } else if (playerScore < dealerScore) {
+                endGame('lose');
+            } else {
+                endGame('tie');
+            }
+        }
+        
+        function endGame(result) {
+            gameOver = true;
+            const messages = {
+                bust: 'You busted! Dealer wins.',
+                dealer_bust: 'Dealer busted! You win!',
+                win: 'You win!',
+                lose: 'You lose!',
+                tie: "It's a tie!"
+            };
+            
+            const msgElement = document.getElementById('message');
+            msgElement.textContent = messages[result];
+            msgElement.className = result === 'win' || result === 'dealer_bust' ? 'win' : result === 'lose' || result === 'bust' ? 'lose' : 'tie';
+            
+            if (result === 'win' || result === 'dealer_bust') {
+                wins++;
+                document.getElementById('wins').textContent = wins;
+            } else if (result === 'lose' || result === 'bust') {
+                losses++;
+                document.getElementById('losses').textContent = losses;
+            }
+        }
+        
+        function resetGame() {
+            wins = losses = 0;
+            document.getElementById('wins').textContent = '0';
+            document.getElementById('losses').textContent = '0';
+            document.getElementById('message').textContent = 'Game reset. Click "Deal" to play!';
+            document.getElementById('dealerCards').innerHTML = '';
+            document.getElementById('playerCards').innerHTML = '';
+            document.getElementById('dealerScore').textContent = 'Score: 0';
+            document.getElementById('playerScore').textContent = 'Score: 0';
+        }
+        
+        createDeck();
+    </script>
+</body>
+</html>
